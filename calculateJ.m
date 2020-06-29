@@ -8,7 +8,7 @@ function [J, Jw,bSigma,meanSig] = calculateJ(D,indx_class)
         wSigma(i) = withinClassVar(D(:,indx_class{i}));
     end
     wSigmaSum  = sum(wSigma);
-    meanSig = wSigmaSum/n;
+    meanSig = wSigmaSum/size(D,2);
     bSigma = betweenClassVar(D,indx_class);
     J = bSigma/meanSig;
     
