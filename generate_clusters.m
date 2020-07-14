@@ -2,38 +2,35 @@
 
 % Gan Wei Sheng
 % v20200625 - created
+% v20200630 - change to multivariate normal distribution function
 
-
+clear,clc
 %% CLUSTER GENERATION
+% x and y are set to be independent variables (Cov(x,y) = 0)
 
+% Generation settings
 cluster_num = 3;
 plot_style = {'rx', 'bo', 'g^'};
 
 % variable init
-sz = zeros(cluster_num,1 ); 
+sz = [100 100 100]; % 
 
 % cluster1
-sz(1) = 50; %num of samples
-sigma = [1,1]; %standard deviation
+sigma = [1,0; 0, 1]; % covariance matrix
 mu = [0,0]; 
-x1 = normrnd(mu(1), sigma(1), [sz(1),1]);
-y1 = normrnd(mu(2), sigma(2), [sz(1),1]);
+X1 = mvnrnd(mu, sigma, sz(1));
 
 % cluster2
-sz(2) = 50; %num of samples
-sigma = [1,1]; %standard deviation
+sigma = [1,0; 0, 1]; % covariance matrix
 mu = [4,4]; 
-x2 = normrnd(mu(1), sigma(1), [sz(2),1]);
-y2 = normrnd(mu(2), sigma(2), [sz(2),1]);
+X2 = mvnrnd(mu, sigma, sz(2));
 
 % cluster3
-sz(3) = 50; %num of samples
-sigma = [1,1]; %standard deviation
+sigma = [1,0; 0, 1]; % covariance matrix
 mu = [-2,6]; 
-x3 = normrnd(mu(1), sigma(1), [sz(3),1]);
-y3 = normrnd(mu(2), sigma(2), [sz(3),1]);
+X3 = mvnrnd(mu, sigma, sz(3));
 
-X = [x1,y1;x2,y2; x3,y3]; %matrix representation
+X = [X1;X2;X3]; %combine all samples into 1 matrix
 %% TAGGING
 
 C = ones(sum(sz),1); %cluster label

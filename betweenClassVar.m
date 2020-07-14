@@ -8,7 +8,7 @@ for i=1:n
     classMu(:,i) = mean(X(:,class_index{i}),2);
 end
 sigma = var(classMu,1,2);
-bSigma = sum(sigma);
+bSigma = sum(sigma)/n;
 
 % second version
 totalMu = mean(X,2);
