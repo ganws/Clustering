@@ -1,9 +1,7 @@
 function [idx, C, total_wce] = xmeans(X, k_max, varargin)
 
 %     MATLAB implmentation of xmeans algorithm based on Pyclustering version 0.9.3.1
-%     20200716 - Added mndl and gap as criterion
-%              - Splitting criterion as input argument
-%              - Added option to visualize splitting process
+%     20200716 - Added minimum noise description length and refactoring
 %     20200710 - Written
 %     Written by Gan Wei Sheng
 %     
@@ -16,6 +14,8 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
 %                                     -'gap' gap statistic
 %     'visualize_split' (Optional): visualize splitting process specified by name-value pair,
 %                         value is 'on' or 'off'(default)
+%                                     
+%           
 %     
 %     OUTPUT:
 %     idx: cluster index
@@ -23,10 +23,11 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
 %        calculated clusters
 %     total_wce: Total euclidean squared distance
 
+
 %    ////////////////____TODO_____///////////////
 %    - Initial centroids as input argumenmt (current default is empty) 
 %    - TOLERANCE as input argument
-%    - Implement degree of class separation J as splitting criterion 
+%    - Implement degree of class separation J as splitting criterion
 %    ////////////////////////////////////////////
 
     % ============= Arguments validation ============
@@ -105,7 +106,7 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
         
         % Perform local kmeans
         if isempty(local_centroids)
-            [clusterindx, local_centroids, local_sumD] = kmeans(local_X, 2);
+            [clusterindx, local_centroids, local_sumD] = kmeans(local_X, 3);
         else
             [clusterindx, local_centroids, local_sumD] = kmeans(local_X, size(local_centroids,1), 'Start', local_centroids);
         end
@@ -134,13 +135,26 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
         amount_free_c = k_max - size(centers,1);
         
         for k = 1:length(clusters)
+            
+            % search for the closest centroid
+           query_idx = clusters{k};
+           query_centers = centers(k,:);
+           query_clusters = clusters(k);
+           closest_cluster_idx = knnsearch(centers, centers(k,:), 'K', 2);
+           if length(closest_cluster_idx) > 1 % only when there are more than 1 centroids
+               closest_cluster_idx = closest_cluster_idx(2);
+               query_clusters = {clusters{k}, clusters{closest_cluster_idx}};
+               query_idx = [clusters{k}; clusters{closest_cluster_idx}];
+               query_centers = [centers(k,:); centers(closest_cluster_idx,:)];
+           end
+
             % solve k-means problem for children where data of parent are used.
-            [parent_child_clusters, parent_child_centers, ~] = improve_param(null(1,1), clusters{k});
+            [parent_child_clusters, parent_child_centers, ~] = improve_param(null(1,1), query_idx);
             
             % if it is possible to split current cluster
-            if length(parent_child_clusters) > 1 
+            if length(parent_child_clusters) > 2 
                 % Calculate splitting criterion
-                parent_scores = splitting_criterion(clusters(k), centers(k,:));
+                parent_scores = splitting_criterion(query_clusters, query_centers);
                 child_scores = splitting_criterion(parent_child_clusters, parent_child_centers);
                                 
                 split_require = false;
@@ -166,18 +180,19 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
                         end
                 end
                 
-                
-                % visualize splitting process
                 if strcmp(par.Results.visualize_split, 'on')
-
+                % visualize splitting process
                     figure   
                     scatter(X(:,1), X(:,2), '.');
                     hold on
                     scatter(X(parent_child_clusters{1},1), X(parent_child_clusters{1},2), 'g.')
                     scatter(X(parent_child_clusters{2},1), X(parent_child_clusters{2},2), 'r.')
+                    scatter(X(parent_child_clusters{3},1), X(parent_child_clusters{3},2), 'b.')
                     plot(centers(:,1), centers(:,2), 'kx', 'MarkerSize', 10);
+                    plot(query_centers(:,1), query_centers(:,2), 'kp', 'MarkerSize', 10, 'MarkerFaceColor', 'k');
                     plot(parent_child_centers(1,1), parent_child_centers(1,2), 'k.', 'MarkerSize', 10);
                     plot(parent_child_centers(2,1), parent_child_centers(2,2), 'k.', 'MarkerSize', 10);
+                    plot(parent_child_centers(3,1), parent_child_centers(3,2), 'k.', 'MarkerSize', 10);
                     anotStr = {['parent score=',num2str(parent_scores)], ['child score=', num2str(child_scores)]};
                     annotation('textbox', [.2 0 .3 .3], 'String', anotStr, 'FitBoxToText', 'on');
                     title(['iter=', num2str(currentSplittingIteration), '  split=', num2str(split_require)]);

@@ -9,28 +9,28 @@ clear,clc
 % x and y are set to be independent variables (Cov(x,y) = 0)
 
 % Generation settings
-cluster_num = 3;
+cluster_num = 1;
 plot_style = {'rx', 'bo', 'g^'};
 
 % variable init
-sz = [100 100 100]; % 
+sz = [1000 100 100]; % 
 
 % cluster1
 sigma = [1,0; 0, 1]; % covariance matrix
 mu = [0,0]; 
-X1 = mvnrnd(mu, sigma, sz(1));
+X = mvnrnd(mu, sigma, sz(1));
+% 
+% % cluster2
+% sigma = [1,0; 0, 1]; % covariance matrix
+% mu = [4,4]; 
+% X2 = mvnrnd(mu, sigma, sz(2));
+% 
+% % cluster3
+% sigma = [1,0; 0, 1]; % covariance matrix
+% mu = [-2,6]; 
+% X3 = mvnrnd(mu, sigma, sz(3));
 
-% cluster2
-sigma = [1,0; 0, 1]; % covariance matrix
-mu = [4,4]; 
-X2 = mvnrnd(mu, sigma, sz(2));
-
-% cluster3
-sigma = [1,0; 0, 1]; % covariance matrix
-mu = [-2,6]; 
-X3 = mvnrnd(mu, sigma, sz(3));
-
-X = [X1;X2;X3]; %combine all samples into 1 matrix
+% X = [X1;X2;X3]; %combine all samples into 1 matrix
 %% TAGGING
 
 C = ones(sum(sz),1); %cluster label
@@ -51,4 +51,4 @@ end
 
 hold off
 
-save('toy_cluster_case1.mat', 'X', 'C', 'sz', 'cluster_num', 'plot_style', 'indx_class');
+save('toy_1cluster.mat', 'X', 'C', 'sz', 'cluster_num', 'plot_style', 'indx_class');

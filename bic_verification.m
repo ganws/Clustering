@@ -33,3 +33,4 @@ end
 
 % check BIC
 matlab_bic = calculateBIC(X, cluster_indx, centers)
+mndl = calculateMNDL(X, cluster_indx, centers)

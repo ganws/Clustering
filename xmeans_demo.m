@@ -1,15 +1,17 @@
 % Demo code to perform xmeans clustering on sample data
 
+% 20200716 - Use gscatter
 % 20200714 - Written
 % Written by Gan Wei Sheng
 
 clear;clc;
 
-X = readmatrix('5class.txt'); % read data from file
-k_max = 10; % maximum allocation of cluster number
+X = readmatrix('6class.txt'); % read data from file
+k_max = 12; % maximum allocation of cluster number
 
 % Perform x-means on sample data
-[cluster_indx, centers, wce]  = xmeans(X, k_max); 
+[idx, centers, wce]  = xmeans(X, k_max, 'bic', 'visualize_split', 'off'); 
+result_k = length(unique(idx));
 
 % Plot original data
 figure
@@ -17,14 +19,9 @@ scatter(X(:,1),X(:,2), '.')
 title("Before clustering")
 
 % Visualize clustering results
-dim = size(centers,2);
-if (dim ==2)
-    figure
-    for i = 1:length(cluster_indx)
-        scatter(X(cluster_indx{i},1), X(cluster_indx{i},2), '.');
-        hold on
-        scatter(centers(i,1), centers(i,2), 'ko', 'filled');
-        hold on
-    end
-end
-title(['After xmeans, k = ', num2str(length(cluster_indx))]);
+figure
+h1 = gscatter(X(:,1), X(:,2), idx);
+hold on
+h2 = plot(centers(:,1), centers(:,2), 'kx');
+title(['After xmeans, k = ', num2str(result_k)]);
+legend('off')

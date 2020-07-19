@@ -4,12 +4,13 @@
 % v20200625 - created
 
 clear;clc;
-X1 = readmatrix('5class.txt');
-X2 = readmatrix('11class.txt');
-X = [X1;X2];
+X = readmatrix('6class.txt');
+% X1 = readmatrix('5class.txt');
+% X2 = readmatrix('11class.txt');
+% X = [X1;X2];
 %% SETTINGS
 
-max_k = 30; % maximum k (num of cluster) to be tested 
+max_k = 15; % maximum k (num of cluster) to be tested 
 %% TEST
 % 
 % k = 5;
@@ -36,12 +37,12 @@ for iter = 1:ITERATION
     IK = 1;
     for k = 2:max_k
         
-        [idx, centroid{k}, sumD, D] = kmeans(X, k); %clustering
+        [idx{k}, centroid{k}, sumD, D] = kmeans(X, k); %clustering
 
         %create new index based on clustering results
         new_indx_class = {};
         for j = 1:k
-            new_indx_class{j} = find(idx == j);
+            new_indx_class{j} = find(idx{k} == j);
         end
 
         [J(IK), bSigma(IK), wSigma(IK)] = calculateJ(X', new_indx_class); % calculate degree of separation between clusters
@@ -73,16 +74,17 @@ bic_std = std(BIC_final);
 
 %% Visualize clusters
 
-plot_k = 16; % choose which result to plot
+plot_k = 10; % choose which result to plot
 
 figure
-for k = 1:plot_k
-    scatter(X(cluster_indx{plot_k}{k},1), X(cluster_indx{plot_k}{k},2), '.')
-    hold on
-    scatter(centroid{plot_k}(k,1), centroid{plot_k}(k,2), 50, 'ko', 'filled')
-end
+% for k = 1:plot_k
+%     scatter(X(cluster_indx{plot_k}{k},1), X(cluster_indx{plot_k}{k},2), '.')
+%     hold on
+%     scatter(centroid{plot_k}(k,1), centroid{plot_k}(k,2), 50, 'ko', 'filled')
+% end
+gscatter(X(:,1), X(:,2), idx{plot_k});
 textannot = ['BIC = ', num2str(bic(plot_k-1))]
-annotation('textbox', [.15,.7,.2,.2], 'String', textannot, 'FitBoxToText', 'on');
+%annotation('textbox', [.15,.7,.2,.2], 'String', textannot, 'FitBoxToText', 'on');
 hold off
 
 %% 
