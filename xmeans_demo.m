@@ -6,11 +6,14 @@
 
 clear;clc;
 
-X = readmatrix('6class.txt'); % read data from file
-k_max = 12; % maximum allocation of cluster number
+X = readmatrix('11class.txt');
+% X2 = readmatrix('11class.txt');
+% X = [X1;X2];
+% X = readmatrix('6class.txt'); % read data from file
+k_max = 20; % maximum allocation of cluster number
 
 % Perform x-means on sample data
-[idx, centers, wce]  = xmeans(X, k_max, 'bic', 'visualize_split', 'off'); 
+[idx, centers, wce]  = xmeans_modified(X, k_max, 'bic', 'visualize_split', 'off'); 
 result_k = length(unique(idx));
 
 % Plot original data

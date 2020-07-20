@@ -1,4 +1,4 @@
-function [idx, C, total_wce] = xmeans(X, k_max, varargin)
+function [idx, C, total_wce] = xmeans_modified(X, k_max, varargin)
 
 %     MATLAB implmentation of xmeans algorithm based on Pyclustering version 0.9.3.1
 %     20200716 - Added minimum noise description length and refactoring
@@ -59,7 +59,7 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
    % =============== Main algorithm steps =============
    while size(C, 1) <= k_max
        current_cluster_num = size(C, 1);
-       [clusters, C, total_wce] = improve_param(C, null(1,1));
+       [clusters, C, total_wce] = improve_param(C, null(1,1), false);
        allocated_C = improve_structure(clusters, C);
        
        if current_cluster_num == size(allocated_C,1)
@@ -68,7 +68,7 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
            C = allocated_C;
        end
        
-       [clusters, C, total_wce] = improve_param(C, null(1,1));
+       [clusters, C, total_wce] = improve_param(C, null(1,1), false);
    end
    
    % NOTE: 
@@ -94,8 +94,12 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
    % nested functions share the same workspace with main function so that 
    % copies of X do not need to be created
    
-    function[clusters, local_centroids, local_wce] = improve_param(centroids, available_index)
+    function[clusters, local_centroids, local_wce] = improve_param(centroids, available_index, ONE_CLUSTER)
         % Performs k-means clustering in specific region
+        % INPUT:
+        % centroid
+        % available_index
+        % FIRST_CLUSTER: true(split 2), false(split3)
 
         local_X = X;
         if ~isempty(available_index)
@@ -106,7 +110,11 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
         
         % Perform local kmeans
         if isempty(local_centroids)
-            [clusterindx, local_centroids, local_sumD] = kmeans(local_X, 3);
+            if ONE_CLUSTER
+                [clusterindx, local_centroids, local_sumD] = kmeans(local_X, 2);
+            else
+                [clusterindx, local_centroids, local_sumD] = kmeans(local_X, 3);
+            end
         else
             [clusterindx, local_centroids, local_sumD] = kmeans(local_X, size(local_centroids,1), 'Start', local_centroids);
         end
@@ -134,28 +142,66 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
         allocated_c = [];
         amount_free_c = k_max - size(centers,1);
         
-        for k = 1:length(clusters)
+        % Cluster pairing
+        cluster_num =  length(clusters);
+        unpaired_index = 1:cluster_num; %
+        pair_index = {};
+        pair_cluster_list = {};
+        currentIter = 1;
+        % Initialization 
+        
+        % assign a one-cluster 'pair ' if there is only 1 cluster or cluster
+        % number is odd
+        if cluster_num == 1 || mod(cluster_num, 2) == 1
+            c1 = randi([1, cluster_num]); % choose one from list (at this point all clusters are still available)
+            pair_cluster_list{1} = {clusters{c1}}; % add chosen cluster into paired list
+            pair_index{1} = c1;
+            unpaired_index(c1) = []; % remove chosen index from list
+            currentIter = currentIter + 1;
+        end
+
+        while ~isempty(unpaired_index)
+
+            %select a random cluster from available index
+             randIdx = randi(length(unpaired_index), 1);
+             select_idx = unpaired_index(randIdx) ;
+             unpaired_index(randIdx) = [];
+             
+             % find closest centroid from the list of unpaired centroids
+             closest_cluster_idx = knnsearch(centers(unpaired_index, :), centers(select_idx,:), 'K', 1);
+             neighbor_idx = unpaired_index(closest_cluster_idx);
+             unpaired_index(closest_cluster_idx) = [];
+             
+             pair_cluster_list{currentIter} = {clusters{select_idx}, clusters{neighbor_idx}};
+             pair_index{currentIter} = [select_idx, neighbor_idx];
+             
+             currentIter  = currentIter + 1;
+        end
+        
+        for k = 1:length(pair_cluster_list)
             
             % search for the closest centroid
-           query_idx = clusters{k};
-           query_centers = centers(k,:);
-           query_clusters = clusters(k);
-           closest_cluster_idx = knnsearch(centers, centers(k,:), 'K', 2);
-           if length(closest_cluster_idx) > 1 % only when there are more than 1 centroids
-               closest_cluster_idx = closest_cluster_idx(2);
-               query_clusters = {clusters{k}, clusters{closest_cluster_idx}};
-               query_idx = [clusters{k}; clusters{closest_cluster_idx}];
-               query_centers = [centers(k,:); centers(closest_cluster_idx,:)];
+           querry_centers = centers(pair_index{k},:);
+           querry_clusters = pair_cluster_list{k};
+           ONE_CLUSTER = false;
+           
+           if length(pair_cluster_list{k}) == 1
+               ONE_CLUSTER = true;
+               querry_idx = querry_clusters{1}; % for one-cluster 'pair'
+           else
+               querry_idx = [querry_clusters{1};querry_clusters{2}];
            end
-
+           
             % solve k-means problem for children where data of parent are used.
-            [parent_child_clusters, parent_child_centers, ~] = improve_param(null(1,1), query_idx);
+            [parent_child_clusters, parent_child_centers, ~] = improve_param(null(1,1), querry_idx, ONE_CLUSTER);
             
             % if it is possible to split current cluster
-            if length(parent_child_clusters) > 2 
+            if length(parent_child_clusters) > 1 
                 % Calculate splitting criterion
-                parent_scores = splitting_criterion(query_clusters, query_centers);
-                child_scores = splitting_criterion(parent_child_clusters, parent_child_centers);
+                if ~strcmp(SPLITTING_TYPE, 'gap')
+                    parent_scores = splitting_criterion(querry_clusters, querry_centers);
+                    child_scores = splitting_criterion(parent_child_clusters, parent_child_centers);
+                end
                                 
                 split_require = false;
                 
@@ -185,14 +231,15 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
                     figure   
                     scatter(X(:,1), X(:,2), '.');
                     hold on
-                    scatter(X(parent_child_clusters{1},1), X(parent_child_clusters{1},2), 'g.')
-                    scatter(X(parent_child_clusters{2},1), X(parent_child_clusters{2},2), 'r.')
-                    scatter(X(parent_child_clusters{3},1), X(parent_child_clusters{3},2), 'b.')
+                    ccolor = {'g.','r.','b.'};
+                    for pr = length(parent_child_clusters)
+                        scatter(X(parent_child_clusters{pr},1), X(parent_child_clusters{pr},2), ccolor{pr});
+                        plot(parent_child_centers(pr,1), parent_child_centers(pr,2), 'k.', 'MarkerSize', 10);
+                    end
+
                     plot(centers(:,1), centers(:,2), 'kx', 'MarkerSize', 10);
-                    plot(query_centers(:,1), query_centers(:,2), 'kp', 'MarkerSize', 10, 'MarkerFaceColor', 'k');
-                    plot(parent_child_centers(1,1), parent_child_centers(1,2), 'k.', 'MarkerSize', 10);
-                    plot(parent_child_centers(2,1), parent_child_centers(2,2), 'k.', 'MarkerSize', 10);
-                    plot(parent_child_centers(3,1), parent_child_centers(3,2), 'k.', 'MarkerSize', 10);
+                    plot(querry_centers(:,1), querry_centers(:,2), 'kp', 'MarkerSize', 10, 'MarkerFaceColor', 'k');
+                    
                     anotStr = {['parent score=',num2str(parent_scores)], ['child score=', num2str(child_scores)]};
                     annotation('textbox', [.2 0 .3 .3], 'String', anotStr, 'FitBoxToText', 'on');
                     title(['iter=', num2str(currentSplittingIteration), '  split=', num2str(split_require)]);
@@ -203,9 +250,9 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
         
                 if split_require && amount_free_c > 0
                     allocated_c = [allocated_c; parent_child_centers];
-                    amount_free_c = amount_free_c - 1;
+                    amount_free_c = amount_free_c - size(parent_child_centers,1);
                 else
-                    allocated_c = [allocated_c; centers(k,:)];
+                    allocated_c = [allocated_c; centers(pair_index{k},:)];
                 end 
             end
             
