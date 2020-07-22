@@ -1,6 +1,7 @@
 function [idx, C, total_wce] = xmeans(X, k_max, varargin)
 
 %     MATLAB implmentation of xmeans algorithm based on Pyclustering version 0.9.3.1
+%     20200721 - Improved split visualization
 %     20200716 - Added mndl and gap as criterion
 %              - Splitting criterion as input argument
 %              - Added option to visualize splitting process
@@ -53,13 +54,16 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
     SPLITTING_TYPE = par.Results.SPLITTING_TYPE;
     repeat = 1; % repeat (unit): How many times k-means should be run to improve parameters (by default is 1).
                 % With larger 'repeat' values suggesting higher probability of finding global optimum.
-	currentSplittingIteration = 1;
+    iter = 1;
+    
     
    % =============== Main algorithm steps =============
    while size(C, 1) <= k_max
        current_cluster_num = size(C, 1);
+       is_split = [];
        [clusters, C, total_wce] = improve_param(C, null(1,1));
-       allocated_C = improve_structure(clusters, C);
+       [allocated_C, parentchild_relation, unborn_c] = improve_structure(clusters, C);
+       C_old = C;
        
        if current_cluster_num == size(allocated_C,1)
            break
@@ -68,6 +72,13 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
        end
        
        [clusters, C, total_wce] = improve_param(C, null(1,1));
+       idx = ConvertCellIdx2Idx(clusters);
+       
+       if strcmp(par.Results.visualize_split, 'on')
+            visualize_splitting_process;
+       end
+       
+       iter = iter+1;
    end
    
    % NOTE: 
@@ -76,11 +87,6 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
    % index for convenience purpose because the code is based directly on
    % pyclustering implementation.
    % Refactoring needed to avoid unneceesary conversion
-   
-   idx = zeros(size(X,1), 1);
-   for m = 1:length(clusters)
-       idx(clusters{m}) = m;
-   end
    
   % display output
   disp(['Splitting criterion = ', SPLITTING_TYPE]);
@@ -121,7 +127,7 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
     end
 
 
-    function[allocated_c]  = improve_structure(clusters, centers)
+    function[allocated_c, parent_child_relation, unborn_c]  = improve_structure(clusters, centers)
         % Check for best structure: divides each cluster into two and checks for best results using splitting criterion.
 
         % INPUT:
@@ -131,6 +137,8 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
         % return Allocated_c for clustering.
         
         allocated_c = [];
+        unborn_c = [];
+        parent_child_relation = []; % index showing if a parent has child or not
         amount_free_c = k_max - size(centers,1);
         
         for k = 1:length(clusters)
@@ -165,32 +173,17 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
                             split_require = true;
                         end
                 end
-                
-                
-                % visualize splitting process
-                if strcmp(par.Results.visualize_split, 'on')
-
-                    figure   
-                    scatter(X(:,1), X(:,2), '.');
-                    hold on
-                    scatter(X(parent_child_clusters{1},1), X(parent_child_clusters{1},2), 'g.')
-                    scatter(X(parent_child_clusters{2},1), X(parent_child_clusters{2},2), 'r.')
-                    plot(centers(:,1), centers(:,2), 'kx', 'MarkerSize', 10);
-                    plot(parent_child_centers(1,1), parent_child_centers(1,2), 'k.', 'MarkerSize', 10);
-                    plot(parent_child_centers(2,1), parent_child_centers(2,2), 'k.', 'MarkerSize', 10);
-                    anotStr = {['parent score=',num2str(parent_scores)], ['child score=', num2str(child_scores)]};
-                    annotation('textbox', [.2 0 .3 .3], 'String', anotStr, 'FitBoxToText', 'on');
-                    title(['iter=', num2str(currentSplittingIteration), '  split=', num2str(split_require)]);
-                    print(['iter-',num2str(currentSplittingIteration)], '-dpng');
-                end
-                
-                currentSplittingIteration = currentSplittingIteration + 1;
         
                 if split_require && amount_free_c > 0
                     allocated_c = [allocated_c; parent_child_centers];
                     amount_free_c = amount_free_c - 1;
+                    parent_child_relation = [parent_child_relation, k, k];
+                    is_split = [is_split, true];
                 else
+                    unborn_c = [unborn_c; parent_child_centers];
                     allocated_c = [allocated_c; centers(k,:)];
+                    parent_child_relation = [parent_child_relation,k];
+                    is_split = [is_split, false];
                 end 
             end
             
@@ -324,7 +317,7 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
              % calculate eucledian distance
              V = X(clusters{k}, : ) - centroids(k,:);
              euclidean_dist = sum(sqrt(sum(V.^2, 2)));
-             euclidean_dist2 = sum(sum(V.^2, 2));
+             %euclidean_dist2 = sum(sum(V.^2, 2));
 
              sigma_sqrt = sigma_sqrt + euclidean_dist;
              W = W + euclidean_dist / Ni;
@@ -339,6 +332,62 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
             MNDLScore = sigma_sqrt * (2 * K)^0.5 * ((2 * K)^0.5 + beta) / N + W - sigma_sqrt + Ks + 2 * alpha^0.5 * sigma_sqrt / N ;
          end
     end
+
+    function [] = visualize_splitting_process()
+        figure
+        gscatter(X(:,1), X(:,2), idx); % plot every points
+        hold on
+        
+        % plot dead parents and their corresponding children
+        dead_idx = find(is_split);
+        for i = 1:length(dead_idx)
+            
+            p = C_old(dead_idx(i), :);  % parent
+            c = C(parentchild_relation == dead_idx(i),:); %children
+            
+            h(1) = plot(p(:, 1), p(:, 2), 'ko', 'MarkerSize', 6);
+            h(2) = plot(c(:, 1), c(:, 2), 'k.', 'MarkerSize', 12);
+            
+            %draw line between parent-children
+            h(3) = plot([p(:,1), c(1,1)], [p(:,2), c(1,2)], 'k-');
+            plot([p(:,1), c(2,1)], [p(:,2), c(2,2)], 'k-');
+        end
+        
+        % plot alive parents and their corresponding unborn children
+        alive_idx = find(~is_split);
+        new_alive_idx = false(size(parentchild_relation));
+        for a = 1:length(alive_idx)
+            p = C(parentchild_relation==alive_idx(a),:); % parent
+            c1 = unborn_c(2*a-1,:); % unborn 1
+            c2 = unborn_c(2*a,:);   % unborn 2
+            
+            plot(p(:, 1), p(:, 2), 'k.', 'MarkerSize', 12);
+            h(4) = plot(c1(:,1), c1(:,2), 'ko', 'MarkerSize', 3);
+            plot(c2(:,1), c2(:,2), 'ko', 'MarkerSize', 3);
+            
+            plot([p(:,1), c1(1,1)], [p(:,2), c1(1,2)], 'k:');
+            h(5) = plot([p(:,1), c2(1,1)], [p(:,2), c2(1,2)], 'k:');
+        end
+        hold off
+        
+        if(length(alive_idx) == 0)
+            legend([h(2), h(1), h(3)],  'Centroids', 'Dead Centroid','Parent-Children Relation')
+        else
+            legend([ h(2), h(1), h(4), h(3), h(5)],  ...
+                'Centroids', 'Dead Centroid','Unborn Children', 'Parent-Children Relation', 'Unborn Parent-Children Relation')
+        end
+        title(['Iter = ', num2str(iter), '  k = ', num2str(length(C))]);
+        print(['iter-',num2str(iter)], '-dpng');
+        
+    end
+
+    function [idx] = ConvertCellIdx2Idx(clusters)
+        idx = zeros(size(X,1), 1);
+        for m = 1:length(clusters)
+            idx(clusters{m}) = m;
+        end
+    end
+        
 
 end
 

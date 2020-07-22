@@ -6,14 +6,11 @@
 
 clear;clc;
 
-X = readmatrix('11class.txt');
-% X2 = readmatrix('11class.txt');
-% X = [X1;X2];
-% X = readmatrix('6class.txt'); % read data from file
-k_max = 20; % maximum allocation of cluster number
+X = readmatrix('5class.txt');
+k_max = 10; % maximum allocation of cluster number
 
 % Perform x-means on sample data
-[idx, centers, wce]  = xmeans_modified(X, k_max, 'bic', 'visualize_split', 'off'); 
+[idx, centers, wce]  = xmeans(X, k_max, 'bic', 'visualize_split', 'on'); 
 result_k = length(unique(idx));
 
 % Plot original data
@@ -21,7 +18,7 @@ figure
 scatter(X(:,1),X(:,2), '.')
 title("Before clustering")
 
-% Visualize clustering results
+% Visualize final clustering results
 figure
 h1 = gscatter(X(:,1), X(:,2), idx);
 hold on

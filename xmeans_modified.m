@@ -1,8 +1,7 @@
 function [idx, C, total_wce] = xmeans_modified(X, k_max, varargin)
 
-%     MATLAB implmentation of xmeans algorithm based on Pyclustering version 0.9.3.1
-%     20200716 - Added minimum noise description length and refactoring
-%     20200710 - Written
+%     Modified version of xmeans
+%     20200721 - Written
 %     Written by Gan Wei Sheng
 %     
 %     INPUT:
@@ -86,9 +85,6 @@ function [idx, C, total_wce] = xmeans_modified(X, k_max, varargin)
   % display output
   disp(['Splitting criterion = ', SPLITTING_TYPE]);
   disp(['xmeans result, k = ', num2str(length(clusters))]);
-   
-  
-  
   
    % ================Nested function definitions==============
    % nested functions share the same workspace with main function so that 
@@ -111,9 +107,9 @@ function [idx, C, total_wce] = xmeans_modified(X, k_max, varargin)
         % Perform local kmeans
         if isempty(local_centroids)
             if ONE_CLUSTER
-                [clusterindx, local_centroids, local_sumD] = kmeans(local_X, 2);
+                [clusterindx, local_centroids, local_sumD] = kmeans(local_X, 2, 'Replicates', 10);
             else
-                [clusterindx, local_centroids, local_sumD] = kmeans(local_X, 3);
+                [clusterindx, local_centroids, local_sumD] = kmeans(local_X, 3, 'Replicates', 10);
             end
         else
             [clusterindx, local_centroids, local_sumD] = kmeans(local_X, size(local_centroids,1), 'Start', local_centroids);
@@ -148,12 +144,17 @@ function [idx, C, total_wce] = xmeans_modified(X, k_max, varargin)
         pair_index = {};
         pair_cluster_list = {};
         currentIter = 1;
-        % Initialization 
         
         % assign a one-cluster 'pair ' if there is only 1 cluster or cluster
         % number is odd
         if cluster_num == 1 || mod(cluster_num, 2) == 1
-            c1 = randi([1, cluster_num]); % choose one from list (at this point all clusters are still available)
+            % choose the cluster furthest from the mean
+            % pdist
+            dist2 = sum((centers - mean(centers,1)).^2,2); %euclidean distance square
+            [~, dist_idx] = sort(dist2);
+            c1 = dist_idx(end);
+            
+            %c1 = randi([1, cluster_num]); % choose one from list (at this point all clusters are still available)
             pair_cluster_list{1} = {clusters{c1}}; % add chosen cluster into paired list
             pair_index{1} = c1;
             unpaired_index(c1) = []; % remove chosen index from list
@@ -232,7 +233,7 @@ function [idx, C, total_wce] = xmeans_modified(X, k_max, varargin)
                     scatter(X(:,1), X(:,2), '.');
                     hold on
                     ccolor = {'g.','r.','b.'};
-                    for pr = length(parent_child_clusters)
+                    for pr = 1:length(parent_child_clusters)
                         scatter(X(parent_child_clusters{pr},1), X(parent_child_clusters{pr},2), ccolor{pr});
                         plot(parent_child_centers(pr,1), parent_child_centers(pr,2), 'k.', 'MarkerSize', 10);
                     end
