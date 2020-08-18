@@ -370,7 +370,7 @@ function [idx, C, total_wce] = xmeans(X, k_max, varargin)
         end
         hold off
         
-        if(length(alive_idx) == 0)
+        if(isempty(alive_idx))
             legend([h(2), h(1), h(3)],  'Centroids', 'Dead Centroid','Parent-Children Relation')
         else
             legend([ h(2), h(1), h(4), h(3), h(5)],  ...
