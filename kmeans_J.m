@@ -4,7 +4,8 @@
 % v20200625 - created
 
 clear;clc;
-X = readmatrix('6class.txt');
+load 191111_var2.mat
+% X = readmatrix('6class.txt');
 % X1 = readmatrix('5class.txt');
 % X2 = readmatrix('11class.txt');
 % X = [X1;X2];

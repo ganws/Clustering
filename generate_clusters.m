@@ -9,10 +9,10 @@ clear,clc
 % x and y are set to be independent variables (Cov(x,y) = 0)
 
 % Generation settings
-cluster_num = 1;
-plot_style = {'rx', 'bo', 'g^'};
+cluster_num = 2;
+plot_style = {'rx', 'bo'};
 
-sz = [1000, 1000, 1000]; 
+sz = [910, 90]; 
 
 % cluster1
 sigma = [1,0 ; 0,1]; % covariance matrix
@@ -21,15 +21,15 @@ X1 = mvnrnd(mu, sigma, sz(1));
 
 % cluster2
 sigma = [1,0; 0, 1]; % covariance matrix
-mu = [4,4]; 
+mu = [6,6]; 
 X2 = mvnrnd(mu, sigma, sz(2));
 
 % cluster3
-sigma = [1,0; 0, 1]; % covariance matrix
-mu = [10,1]; 
-X3 = mvnrnd(mu, sigma, sz(3));
+% sigma = [1,0; 0, 1]; % covariance matrix
+% mu = [10,1]; 
+% X3 = mvnrnd(mu, sigma, sz(3));
 
-X = [X1;X2;X3]; %combine all samples into 1 matrix
+X = [X1;X2]; %combine all samples into 1 matrix
 %% TAGGING
 
 C = ones(sum(sz),1); %cluster label
@@ -50,4 +50,5 @@ end
 
 hold off
 
-% save('toy_1cluster.mat', 'X', 'C', 'sz', 'cluster_num', 'plot_style', 'indx_class');
+J = calculateJ(X', indx_class)
+save('2classlabelled_case9.mat', 'X', 'C', 'sz', 'cluster_num', 'plot_style', 'indx_class');
